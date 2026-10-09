@@ -1,0 +1,976 @@
+<!DOCTYPE html><html lang="es" class="scroll-smooth"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análisis de Características ANOVA – Campaña de Marketing Bancario</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            navy: {
+              900: '#0B1120',
+              800: '#0F172A',
+              700: '#1E293B',
+              600: '#334155',
+            },
+            teal: {
+              500: '#14B8A6',
+              600: '#0D9488',
+              700: '#0F766E',
+            },
+            amber: {
+              400: '#FBBF24',
+              500: '#F59E0B',
+              600: '#D97706',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Tooltip Custom Styles */
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 50;
+      transform: translate(-50%, -115%);
+    }
+    .chart-tooltip.active {
+      opacity: 1;
+    }
+    /* Subtle custom scrollbar */
+    ::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen selection:bg-teal-500 selection:text-white">
+
+  <!-- Floating / Global Tooltip Element -->
+  <div id="globalTooltip" class="chart-tooltip bg-navy-800 text-white text-xs px-3 py-1.5 rounded-lg shadow-xl border border-slate-700 whitespace-nowrap">
+    <div id="tooltipContent" class="font-medium">Valor</div>
+  </div>
+
+  <!-- Header Section with sticky navbar -->
+  <header class="bg-navy-800 text-white border-b border-slate-800 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="space-y-3">
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-semibold tracking-wide uppercase">
+            <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+            Selección de Atributos &amp; Estadística
+          </div><div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-navy-700/80 border border-slate-700 text-slate-300 text-xs font-medium"><span class="text-teal-400 font-semibold">•</span><span class="">Hecho por <strong class="text-white font-semibold">Diego Carrasco</strong></span></div>
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            Análisis de Características ANOVA – Campaña de Marketing Bancario
+          </h1>
+          <p class="text-slate-300 text-sm sm:text-base max-w-3xl leading-relaxed flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span class="">Prueba ANOVA F-test con SelectKBest (k=3)</span>
+            <span class="text-slate-500">•</span>
+            <span class="">Dataset: <code class="font-mono bg-navy-700/80 px-1.5 py-0.5 rounded text-amber-400 text-xs">bank-additional-full</code></span>
+            <span class="text-slate-500">•</span>
+            <span class="font-medium text-slate-200">41.188 registros</span>
+          </p>
+        </div>
+
+        <!-- Download CSV CTA button -->
+        <div class="flex items-center gap-3">
+          <button id="downloadBtn" onclick="handleDownload()" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-500 active:scale-95 text-white font-medium text-sm transition-all duration-200 shadow-lg shadow-teal-900/40 border border-teal-500/30 group w-full sm:w-auto">
+            <svg class="w-4 h-4 text-teal-200 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span class="">Descargar dataset reducido (CSV)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sticky Navigation with anchors -->
+    <nav class="sticky top-0 z-40 bg-navy-900/95 backdrop-blur-md border-t border-b border-slate-700/60 shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center space-x-1 sm:space-x-4 overflow-x-auto py-2.5 no-scrollbar text-xs sm:text-sm font-medium">
+          <a href="#kpi-summary" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">Resumen KPI</a>
+          <a href="#selected-features" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">ANOVA K=3</a>
+          <a href="#charts-comparison" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">Gráficos Comparativos</a>
+          <a href="#ranking-features" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">Ranking Completo F</a>
+          <a href="#interpretation" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">Interpretación</a>
+          <a href="#formula-theory" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">Fundamento Teórico</a>
+          <a href="#data-preview" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition whitespace-nowrap">Vista de Datos</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+
+    <!-- 1. KPI Row (4 Cards) -->
+    <section id="kpi-summary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <!-- KPI 1 -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Volumen Total</span>
+          <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          </div>
+        </div>
+        <div class="text-2xl sm:text-3xl font-extrabold text-navy-800">41.188</div>
+        <p class="text-xs text-slate-500 mt-1 font-medium">filas procesadas en dataset</p>
+      </div>
+
+      <!-- KPI 2 -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow border-l-4 border-l-teal-600">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-teal-700">Variables Filtro</span>
+          <div class="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </div>
+        </div>
+        <div class="text-2xl sm:text-3xl font-extrabold text-teal-700">3</div>
+        <p class="text-xs text-slate-500 mt-1 font-medium">características seleccionadas (K=3)</p>
+      </div>
+
+      <!-- KPI 3 -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Variable Objetivo</span>
+          <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          </div>
+        </div>
+        <div class="text-2xl sm:text-3xl font-extrabold text-navy-800">Objetivo: y</div>
+        <p class="text-xs text-slate-500 mt-1 font-medium">clasificación binaria ('yes' / 'no')</p>
+      </div>
+
+      <!-- KPI 4 -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-700">Equilibrio de Clases</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
+          </div>
+        </div>
+        <div class="text-xl sm:text-2xl font-extrabold text-navy-800 tracking-tight">88.7% no / 11.3% yes</div>
+        <p class="text-xs text-amber-700 font-medium mt-1">fuerte desbalance muestral</p>
+      </div>
+    </section>
+
+    <!-- 2. Selected Features – ANOVA Results Table (Sortable) -->
+    <section id="selected-features" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-5 sm:p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-navy-900 flex items-center gap-2">
+            <span class="">Características Seleccionadas – Resultados ANOVA</span>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 font-semibold border border-teal-200">f_classif</span>
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1">Pruebas F y significancia estadística para las 3 variables seleccionadas por SelectKBest.</p>
+        </div>
+        <span class="text-xs text-slate-400 italic">Haz clic en los encabezados para ordenar</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table id="anovaTable" class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="bg-slate-100/80 text-xs font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200 select-none">
+              <th onclick="sortTable(0, 'string')" class="py-3.5 px-4 sm:px-6 cursor-pointer hover:bg-slate-200 transition">
+                <div class="flex items-center gap-1.5">
+                  <span class="">Característica</span>
+                  <span class="sort-icon text-slate-400">↕</span>
+                </div>
+              </th>
+              <th onclick="sortTable(1, 'number')" class="py-3.5 px-4 sm:px-6 cursor-pointer hover:bg-slate-200 transition">
+                <div class="flex items-center gap-1.5">
+                  <span class="">Valor F</span>
+                  <span class="sort-icon text-slate-400">↕</span>
+                </div>
+              </th>
+              <th onclick="sortTable(2, 'string')" class="py-3.5 px-4 sm:px-6 cursor-pointer hover:bg-slate-200 transition">
+                <div class="flex items-center gap-1.5">
+                  <span class="">p-valor</span>
+                  <span class="sort-icon text-slate-400">↕</span>
+                </div>
+              </th>
+              <th onclick="sortTable(3, 'number')" class="py-3.5 px-4 sm:px-6 cursor-pointer hover:bg-slate-200 transition">
+                <div class="flex items-center gap-1.5">
+                  <span class="">Tamaño del Efecto (η²)</span>
+                  <span class="sort-icon text-slate-400">↕</span>
+                </div>
+              </th>
+              <th onclick="sortTable(4, 'number')" class="py-3.5 px-4 sm:px-6 cursor-pointer hover:bg-slate-200 transition">
+                <div class="flex items-center gap-1.5">
+                  <span class="">Media "no"</span>
+                  <span class="sort-icon text-slate-400">↕</span>
+                </div>
+              </th>
+              <th onclick="sortTable(5, 'number')" class="py-3.5 px-4 sm:px-6 cursor-pointer hover:bg-slate-200 transition">
+                <div class="flex items-center gap-1.5">
+                  <span class="">Media "yes"</span>
+                  <span class="sort-icon text-slate-400">↕</span>
+                </div>
+              </th>
+              <th class="py-3.5 px-4 sm:px-6 text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-slate-700">
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              <td class="py-4 px-4 sm:px-6 font-mono font-semibold text-navy-800 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-teal-600"></span>
+                duration
+              </td>
+              <td class="py-4 px-4 sm:px-6 font-mono font-bold text-teal-700" data-value="8094.10">8.094,10</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-emerald-700 font-semibold" data-value="0.0001">&lt;0,001</td>
+              <td class="py-4 px-4 sm:px-6 font-mono" data-value="0.164">0,164</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-slate-600" data-value="220.84">220,84 seg</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-teal-700 font-semibold" data-value="553.19">553,19 seg</td>
+              <td class="py-4 px-4 sm:px-6 text-center">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Significativo
+                </span>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              <td class="py-4 px-4 sm:px-6 font-mono font-semibold text-navy-800 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-teal-600"></span>
+                nr.employed
+              </td>
+              <td class="py-4 px-4 sm:px-6 font-mono font-bold text-teal-700" data-value="5926.61">5.926,61</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-emerald-700 font-semibold" data-value="0.0001">&lt;0,001</td>
+              <td class="py-4 px-4 sm:px-6 font-mono" data-value="0.126">0,126</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-slate-600" data-value="5176.17">5.176,17</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-teal-700 font-semibold" data-value="5095.12">5.095,12</td>
+              <td class="py-4 px-4 sm:px-6 text-center">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Significativo
+                </span>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              <td class="py-4 px-4 sm:px-6 font-mono font-semibold text-navy-800 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-teal-600"></span>
+                pdays
+              </td>
+              <td class="py-4 px-4 sm:px-6 font-mono font-bold text-teal-700" data-value="4861.17">4.861,17</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-emerald-700 font-semibold" data-value="0.0001">&lt;0,001</td>
+              <td class="py-4 px-4 sm:px-6 font-mono" data-value="0.106">0,106</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-slate-600" data-value="984.11">984,11</td>
+              <td class="py-4 px-4 sm:px-6 font-mono text-teal-700 font-semibold" data-value="792.04">792,04</td>
+              <td class="py-4 px-4 sm:px-6 text-center">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Significativo
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3.5 bg-slate-50 text-xs text-slate-500 border-t border-slate-200 flex items-center justify-between">
+        <span class="">* El p-valor &lt;0,001 indica significancia al 99,9% de confianza (α = 0,001).</span>
+        <span class="hidden sm:inline">η² representa la varianza explicada</span>
+      </div>
+    </section>
+
+    <!-- 3. Charts Row (3 Cards) -->
+    <section id="charts-comparison" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg sm:text-xl font-bold text-navy-900">Gráficos Comparativos</h2>
+        <span class="text-xs text-slate-400">Pasa el cursor para ver valores exactos</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Chart Card 1: Horizontal Bar Chart of F-values (K=3) -->
+        <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-bold text-navy-900 text-sm sm:text-base">Valores F Seleccionados (k=3)</h3>
+              <span class="text-xs font-mono font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded">F-test</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-6">Fuerza relativa de discriminación de cada variable seleccionada.</p>
+
+            <!-- Bars -->
+            <div class="space-y-5">
+              <!-- duration -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="font-mono text-slate-700">duration</span>
+                  <span class="font-mono font-bold text-teal-700">8.094,10</span>
+                </div>
+                <div class="h-4 bg-slate-100 rounded-full overflow-hidden relative cursor-pointer group" onmousemove="showTooltip(event, 'duration: F = 8.094,10 (100% relativo)')" onmouseleave="hideTooltip()">
+                  <div class="h-full bg-teal-600 rounded-full transition-all duration-500 group-hover:bg-teal-500" style="width: 100%;"></div>
+                </div>
+              </div>
+
+              <!-- nr.employed -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="font-mono text-slate-700">nr.employed</span>
+                  <span class="font-mono font-bold text-teal-700">5.926,61</span>
+                </div>
+                <div class="h-4 bg-slate-100 rounded-full overflow-hidden relative cursor-pointer group" onmousemove="showTooltip(event, 'nr.employed: F = 5.926,61 (73,2% relativo)')" onmouseleave="hideTooltip()">
+                  <div class="h-full bg-teal-600/90 rounded-full transition-all duration-500 group-hover:bg-teal-500" style="width: 73.2%;"></div>
+                </div>
+              </div>
+
+              <!-- pdays -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="font-mono text-slate-700">pdays</span>
+                  <span class="font-mono font-bold text-teal-700">4.861,17</span>
+                </div>
+                <div class="h-4 bg-slate-100 rounded-full overflow-hidden relative cursor-pointer group" onmousemove="showTooltip(event, 'pdays: F = 4.861,17 (60,1% relativo)')" onmouseleave="hideTooltip()">
+                  <div class="h-full bg-teal-600/80 rounded-full transition-all duration-500 group-hover:bg-teal-500" style="width: 60.1%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
+            <span class="">Escala base: F max = 8.094</span>
+            <span class="text-teal-700 font-medium">Mayor F = Más separación</span>
+          </div>
+        </div>
+
+        <!-- Chart Card 2: Grouped Bar Chart Comparing Means 'no' vs 'yes' -->
+        <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-bold text-navy-900 text-sm sm:text-base">Medias por Clase ("no" vs "yes")</h3>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-slate-400"></span> no</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-teal-600"></span> yes</span>
+              </div>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Minigráficos por variable (escalas independientes por naturaleza numérica).</p>
+
+            <div class="space-y-4">
+              <!-- Mini chart: duration -->
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div class="flex justify-between items-center text-xs font-mono mb-2">
+                  <span class="font-semibold text-slate-800">duration (segundos)</span>
+                  <span class="text-teal-700 font-bold">+150% mayor en "yes"</span>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-7 text-slate-500 font-mono text-[10px]">no</span>
+                    <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden relative cursor-pointer" onmousemove="showTooltip(event, 'duration (no): 220,84 seg')" onmouseleave="hideTooltip()">
+                      <div class="bg-slate-400 h-full rounded-full" style="width: 39.9%;"></div>
+                    </div>
+                    <span class="font-mono text-[11px] text-slate-600 w-12 text-right">220,8</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-7 text-teal-700 font-bold font-mono text-[10px]">yes</span>
+                    <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden relative cursor-pointer" onmousemove="showTooltip(event, 'duration (yes): 553,19 seg (mucho más larga)')" onmouseleave="hideTooltip()">
+                      <div class="bg-teal-600 h-full rounded-full" style="width: 100%;"></div>
+                    </div>
+                    <span class="font-mono font-bold text-[11px] text-teal-700 w-12 text-right">553,2</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mini chart: nr.employed -->
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div class="flex justify-between items-center text-xs font-mono mb-2">
+                  <span class="font-semibold text-slate-800">nr.employed (empleados)</span>
+                  <span class="text-slate-600">Menor en "yes"</span>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-7 text-slate-500 font-mono text-[10px]">no</span>
+                    <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden relative cursor-pointer" onmousemove="showTooltip(event, 'nr.employed (no): 5.176,17')" onmouseleave="hideTooltip()">
+                      <div class="bg-slate-400 h-full rounded-full" style="width: 100%;"></div>
+                    </div>
+                    <span class="font-mono text-[11px] text-slate-600 w-12 text-right">5.176</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-7 text-teal-700 font-bold font-mono text-[10px]">yes</span>
+                    <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden relative cursor-pointer" onmousemove="showTooltip(event, 'nr.employed (yes): 5.095,12')" onmouseleave="hideTooltip()">
+                      <div class="bg-teal-600 h-full rounded-full" style="width: 98.4%;"></div>
+                    </div>
+                    <span class="font-mono font-bold text-[11px] text-teal-700 w-12 text-right">5.095</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mini chart: pdays -->
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div class="flex justify-between items-center text-xs font-mono mb-2">
+                  <span class="font-semibold text-slate-800">pdays (días previo)</span>
+                  <span class="text-teal-700 font-bold">792 vs 984</span>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-7 text-slate-500 font-mono text-[10px]">no</span>
+                    <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden relative cursor-pointer" onmousemove="showTooltip(event, 'pdays (no): 984,11 (casi todos 999 = no contactados)')" onmouseleave="hideTooltip()">
+                      <div class="bg-slate-400 h-full rounded-full" style="width: 100%;"></div>
+                    </div>
+                    <span class="font-mono text-[11px] text-slate-600 w-12 text-right">984,1</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-7 text-teal-700 font-bold font-mono text-[10px]">yes</span>
+                    <div class="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden relative cursor-pointer" onmousemove="showTooltip(event, 'pdays (yes): 792,04 (mayor proporción re-contactados)')" onmouseleave="hideTooltip()">
+                      <div class="bg-teal-600 h-full rounded-full" style="width: 80.5%;"></div>
+                    </div>
+                    <span class="font-mono font-bold text-[11px] text-teal-700 w-12 text-right">792,0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
+            Diferencias estadísticamente significativas con p &lt; 0,001.
+          </div>
+        </div>
+
+        <!-- Chart Card 3: Donut Chart for Class Distribution -->
+        <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-bold text-navy-900 text-sm sm:text-base">Distribución de Clases</h3>
+              <span class="text-xs font-mono font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Desbalance</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-6">Proporción de clientes que contrataron el depósito a plazo fijo.</p>
+
+            <div class="flex flex-col items-center justify-center relative py-2">
+              <!-- SVG Donut Chart -->
+              <svg class="w-44 h-44 transform -rotate-90" viewBox="0 0 100 100">
+                <!-- Background Circle (no 88.73%) -->
+                <circle cx="50" cy="50" r="38" class="stroke-slate-300 hover:stroke-slate-400 transition cursor-pointer" stroke-width="14" fill="transparent" stroke-dasharray="238.76" stroke-dashoffset="0" onmousemove="showTooltip(event, 'Clase &quot;no&quot;: 36.548 registros (88,73%)')" onmouseleave="hideTooltip()"></circle>
+                <!-- Teal Segment (yes 11.27%) -->
+                <circle cx="50" cy="50" r="38" class="stroke-teal-600 hover:stroke-teal-500 transition cursor-pointer" stroke-width="14" fill="transparent" stroke-dasharray="26.91 211.85" stroke-dashoffset="0" onmousemove="showTooltip(event, 'Clase &quot;yes&quot;: 4.640 registros (11,27%)')" onmouseleave="hideTooltip()"></circle>
+              </svg>
+
+              <!-- Donut Center Label -->
+              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                <span class="text-2xl font-black text-navy-900">41.188</span>
+                <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Total</span>
+              </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="grid grid-cols-2 gap-3 mt-6">
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-slate-400"></span>
+                  <span class="text-xs font-bold text-slate-700">no</span>
+                </div>
+                <span class="text-xs font-mono font-bold text-slate-700">88,73%</span>
+              </div>
+              <div class="bg-teal-50/60 p-2.5 rounded-xl border border-teal-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-teal-600"></span>
+                  <span class="text-xs font-bold text-teal-800">yes</span>
+                </div>
+                <span class="text-xs font-mono font-bold text-teal-700">11,27%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
+            Tasa de conversión base del marketing: 11,27%.
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4. Ranking of all numeric features by F-value -->
+    <section id="ranking-features" class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-navy-900">Ranking Completo de Variables Numéricas por Valor F</h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Top 3 variables destacadas en verde azulado (teal), resto de variables en escala de grises.</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs font-medium">
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-teal-600"></span> Top 3 Seleccionadas (k=3)</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-slate-300"></span> No seleccionadas</span>
+        </div>
+      </div>
+
+      <!-- Ranked horizontal bars list -->
+      <div class="space-y-3 font-mono text-xs">
+
+        <!-- 1. duration -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '1. duration · F = 8.094 · Top 1')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-bold text-navy-900 flex items-center gap-1.5">
+              <span class="w-4 text-teal-700 font-extrabold">1</span>
+              <span class="">duration</span>
+              <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-sans font-semibold ml-1">K-Best #1</span>
+            </span>
+            <span class="font-bold text-teal-700">8.094</span>
+          </div>
+          <div class="h-5 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-teal-600 rounded-md transition-all duration-300 group-hover:bg-teal-500 flex items-center justify-end pr-2 text-[10px] text-white font-sans font-bold" style="width: 100%;">
+              100%
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. nr.employed -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '2. nr.employed · F = 5.927 · Top 2')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-bold text-navy-900 flex items-center gap-1.5">
+              <span class="w-4 text-teal-700 font-extrabold">2</span>
+              <span class="">nr.employed</span>
+              <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-sans font-semibold ml-1">K-Best #2</span>
+            </span>
+            <span class="font-bold text-teal-700">5.927</span>
+          </div>
+          <div class="h-5 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-teal-600 rounded-md transition-all duration-300 group-hover:bg-teal-500 flex items-center justify-end pr-2 text-[10px] text-white font-sans font-bold" style="width: 73.2%;">
+              73,2%
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. pdays -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '3. pdays · F = 4.861 · Top 3')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-bold text-navy-900 flex items-center gap-1.5">
+              <span class="w-4 text-teal-700 font-extrabold">3</span>
+              <span class="">pdays</span>
+              <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-sans font-semibold ml-1">K-Best #3</span>
+            </span>
+            <span class="font-bold text-teal-700">4.861</span>
+          </div>
+          <div class="h-5 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-teal-600 rounded-md transition-all duration-300 group-hover:bg-teal-500 flex items-center justify-end pr-2 text-[10px] text-white font-sans font-bold" style="width: 60.1%;">
+              60,1%
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. euribor3m -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '4. euribor3m · F = 4.309')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">4</span>
+              <span class="">euribor3m</span>
+            </span>
+            <span class="font-semibold text-slate-700">4.309</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 53.2%;"></div>
+          </div>
+        </div>
+
+        <!-- 5. emp.var.rate -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '5. emp.var.rate · F = 4.024')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">5</span>
+              <span class="">emp.var.rate</span>
+            </span>
+            <span class="font-semibold text-slate-700">4.024</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 49.7%;"></div>
+          </div>
+        </div>
+
+        <!-- 6. previous -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '6. previous · F = 2.304')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">6</span>
+              <span class="">previous</span>
+            </span>
+            <span class="font-semibold text-slate-700">2.304</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 28.5%;"></div>
+          </div>
+        </div>
+
+        <!-- 7. cons.price.idx -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '7. cons.price.idx · F = 779')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">7</span>
+              <span class="">cons.price.idx</span>
+            </span>
+            <span class="font-semibold text-slate-700">779</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 9.6%;"></div>
+          </div>
+        </div>
+
+        <!-- 8. campaign -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '8. campaign · F = 182')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">8</span>
+              <span class="">campaign</span>
+            </span>
+            <span class="font-semibold text-slate-700">182</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 2.2%;"></div>
+          </div>
+        </div>
+
+        <!-- 9. cons.conf.idx -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '9. cons.conf.idx · F = 124')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">9</span>
+              <span class="">cons.conf.idx</span>
+            </span>
+            <span class="font-semibold text-slate-700">124</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 1.5%;"></div>
+          </div>
+        </div>
+
+        <!-- 10. age -->
+        <div class="group cursor-pointer" onmousemove="showTooltip(event, '10. age · F = 38')" onmouseleave="hideTooltip()">
+          <div class="flex justify-between items-center mb-1 text-slate-600">
+            <span class="flex items-center gap-1.5">
+              <span class="w-4 text-slate-400">10</span>
+              <span class="">age</span>
+            </span>
+            <span class="font-semibold text-slate-700">38</span>
+          </div>
+          <div class="h-4 bg-slate-100 rounded-md overflow-hidden relative">
+            <div class="h-full bg-slate-300 rounded-md transition-all duration-300 group-hover:bg-slate-400" style="width: 0.5%;"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. Interpretation Section (3 Cards) -->
+    <section id="interpretation" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-navy-900">Interpretación de Características</h2>
+          <p class="text-xs sm:text-sm text-slate-500">Explicaciones en lenguaje claro para la toma de decisiones de negocio y ciencia de datos.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- Card: duration -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-teal-500/50 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-base font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200">duration</span>
+              <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Máximo F: 8.094</span>
+            </div>
+            <h3 class="font-bold text-slate-900 mb-2 text-sm">Duración de la llamada telefónica</h3>
+            <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+              Los clientes que terminan aceptando el depósito bancario tienen llamadas sustancialmente más largas: una media de <strong>553 segundos</strong> (~9,2 min) frente a apenas <strong>221 segundos</strong> (~3,7 min) en quienes rechazan.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <span class="inline-flex items-center text-xs font-semibold text-teal-800">
+              <svg class="w-3.5 h-3.5 mr-1 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+              Variable más discriminante del conjunto.
+            </span>
+          </div>
+        </div>
+
+        <!-- Card: nr.employed -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-teal-500/50 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-base font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200">nr.employed</span>
+              <span class="text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">F: 5.927</span>
+            </div>
+            <h3 class="font-bold text-slate-900 mb-2 text-sm">Contexto Macroeconómico de Empleo</h3>
+            <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+              Representa el número trimestral de empleados del mercado. Las mayores tasas de aceptación ocurren en contextos con <strong>menores niveles de empleo agregado</strong> (media 5.095 vs 5.176), reflejando una mayor predisposición al ahorro en depósitos bancarios de renta fija ante incertidumbre laboral o recesión.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <span class="inline-flex items-center text-xs font-semibold text-slate-700">
+              <svg class="w-3.5 h-3.5 mr-1 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+              Indicador macroeconómico clave.
+            </span>
+          </div>
+        </div>
+
+        <!-- Card: pdays -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-teal-500/50 hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-base font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200">pdays</span>
+              <span class="text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">F: 4.861</span>
+            </div>
+            <h3 class="font-bold text-slate-900 mb-2 text-sm">Días desde el Último Contacto</h3>
+            <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+              El valor numérico <strong>999 significa "cliente no contactado previamente"</strong>: es un código centinela de negocio, no un conteo real de días. Quienes ya habían sido contactados en campañas previas (valores pequeños &lt;30) exhiben una tasa de conversión marcadamente más alta.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <span class="inline-flex items-center text-xs font-semibold text-amber-800">
+              <svg class="w-3.5 h-3.5 mr-1 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+              Requiere codificación especial (Data Leak/Code).
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 6. Alert Box (Amber - Data Leakage Warning) -->
+    <section class="bg-amber-50 rounded-2xl p-5 sm:p-6 border border-amber-300 shadow-sm relative overflow-hidden">
+      <div class="absolute -right-4 -bottom-4 w-28 h-28 bg-amber-400/10 rounded-full blur-xl pointer-events-none"></div>
+      <div class="flex items-start gap-4">
+        <div class="p-2.5 bg-amber-500 text-white rounded-xl shadow-md shrink-0 mt-0.5">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-base font-bold text-amber-900 tracking-tight">Advertencia de Fuga de Datos (Data Leakage)</h3>
+          <p class="text-sm text-amber-900/90 leading-relaxed">
+            <strong>Advertencia:</strong> <code class="font-mono bg-amber-200/60 px-1 py-0.5 rounded text-amber-950 font-bold">duration</code> solo se conoce <em>después</em> de que la llamada ha finalizado, por lo que debe ser <strong>excluida de cualquier modelo predictivo real</strong> antes de efectuar la llamada saliente. Incluirla crearía un modelo con rendimiento artificialmente inflado e inútil para la prospección operativa.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. How ANOVA F-test works (Theory & Formula) -->
+    <section id="formula-theory" class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200">
+      <div class="max-w-3xl">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold uppercase tracking-wider mb-3">
+          <svg class="w-3.5 h-3.5 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"></path></svg>
+          Fundamento Estadístico
+        </div>
+        <h2 class="text-xl sm:text-2xl font-bold text-navy-900 mb-3">¿Cómo funciona la prueba ANOVA F-test?</h2>
+        <p class="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">
+          El análisis de varianza (ANOVA) compara la <strong>varianza entre grupos</strong> (entre la clase <em>"no"</em> y la clase <em>"yes"</em>) frente a la <strong>varianza intra-grupo</strong> (ruido interno dentro de cada clase). Un valor de <strong>F elevado</strong> indica que la variable separa nítidamente las clases en relación con la dispersión aleatoria.
+        </p>
+
+        <!-- Simple Formula Box -->
+        <div class="bg-slate-900 text-white rounded-xl p-5 sm:p-6 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono shadow-inner">
+          <div class="flex items-center gap-4 text-base sm:text-lg">
+            <span class="text-teal-400 font-extrabold text-2xl">F</span>
+            <span class="text-slate-400">=</span>
+            <div class="inline-flex flex-col items-center">
+              <span class="border-b border-slate-600 pb-1 text-teal-300 font-semibold px-2">Varianza entre clases (MSB)</span>
+              <span class="pt-1 text-slate-300 font-semibold px-2">Varianza intra-clases (MSW)</span>
+            </div>
+          </div>
+          <div class="text-xs text-slate-400 font-sans border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-5">
+            <div class=""><span class="text-teal-400 font-bold">F alto</span> → p &lt; 0,05</div>
+            <div class="">Rechazo de H₀ (las medias son distintas).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Data Preview (First 5 Rows) -->
+    <section id="data-preview" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-5 sm:p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-navy-900 flex items-center gap-2">
+            <span class="">Vista Previa de Datos (Primeras 5 Filas)</span>
+            <span class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono">head(5)</span>
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Muestra representativa de los atributos numéricos seleccionados y la variable objetivo.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-400">Dataset original: bank-additional-full.csv</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm font-mono border-collapse">
+          <thead>
+            <tr class="bg-slate-100/90 text-xs font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200">
+              <th class="py-3 px-4 sm:px-6 w-16">#</th>
+              <th class="py-3 px-4 sm:px-6 text-teal-800">duration</th>
+              <th class="py-3 px-4 sm:px-6 text-teal-800">pdays</th>
+              <th class="py-3 px-4 sm:px-6 text-teal-800">nr.employed</th>
+              <th class="py-3 px-4 sm:px-6 text-slate-800 font-bold">y (objetivo)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-slate-700">
+            <tr class="hover:bg-slate-50">
+              <td class="py-3.5 px-4 sm:px-6 text-slate-400 font-sans">0</td>
+              <td class="py-3.5 px-4 sm:px-6 font-bold text-navy-900">261</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">999</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">5191</td>
+              <td class="py-3.5 px-4 sm:px-6">
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">no</span>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="py-3.5 px-4 sm:px-6 text-slate-400 font-sans">1</td>
+              <td class="py-3.5 px-4 sm:px-6 font-bold text-navy-900">149</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">999</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">5191</td>
+              <td class="py-3.5 px-4 sm:px-6">
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">no</span>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="py-3.5 px-4 sm:px-6 text-slate-400 font-sans">2</td>
+              <td class="py-3.5 px-4 sm:px-6 font-bold text-navy-900">226</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">999</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">5191</td>
+              <td class="py-3.5 px-4 sm:px-6">
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">no</span>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="py-3.5 px-4 sm:px-6 text-slate-400 font-sans">3</td>
+              <td class="py-3.5 px-4 sm:px-6 font-bold text-navy-900">151</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">999</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">5191</td>
+              <td class="py-3.5 px-4 sm:px-6">
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">no</span>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="py-3.5 px-4 sm:px-6 text-slate-400 font-sans">4</td>
+              <td class="py-3.5 px-4 sm:px-6 font-bold text-navy-900">307</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">999</td>
+              <td class="py-3.5 px-4 sm:px-6 text-slate-600">5191</td>
+              <td class="py-3.5 px-4 sm:px-6">
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">no</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-navy-900 text-slate-400 py-10 border-t border-slate-800 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+        <span class="text-sm font-medium text-slate-300">Construido con Streamlit · scikit-learn · SelectKBest (f_classif)</span>
+      </div>
+      <p class="text-xs text-slate-500">
+        Pipeline de Analítica Predictiva &amp; Selección Supervisada de Atributos
+      </p>
+    </div>
+  </footer>
+
+  <!-- Vanilla JavaScript for Interactivity -->
+  <script>
+    // 1. Interactive Tooltip Handler
+    const tooltip = document.getElementById('globalTooltip');
+    const tooltipContent = document.getElementById('tooltipContent');
+
+    function showTooltip(event, text) {
+      tooltipContent.innerHTML = text;
+      tooltip.style.left = `${event.pageX}px`;
+      tooltip.style.top = `${event.pageY}px`;
+      tooltip.classList.add('active');
+    }
+
+    function hideTooltip() {
+      tooltip.classList.remove('active');
+    }
+
+    // 2. Sortable Table Implementation
+    let sortDirections = {};
+
+    function sortTable(columnIndex, type) {
+      const table = document.getElementById("anovaTable");
+      const tbody = table.querySelector("tbody");
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+      const currentDir = sortDirections[columnIndex] === 'asc' ? 'desc' : 'asc';
+      sortDirections[columnIndex] = currentDir;
+
+      // Reset header sort indicators
+      const headers = table.querySelectorAll("th");
+      headers.forEach((th, idx) => {
+        const icon = th.querySelector(".sort-icon");
+        if (icon) {
+          if (idx === columnIndex) {
+            icon.textContent = currentDir === 'asc' ? '▲' : '▼';
+            icon.classList.remove('text-slate-400');
+            icon.classList.add('text-teal-600');
+          } else {
+            icon.textContent = '↕';
+            icon.classList.add('text-slate-400');
+            icon.classList.remove('text-teal-600');
+          }
+        }
+      });
+
+      rows.sort((a, b) => {
+        const cellA = a.children[columnIndex];
+        const cellB = b.children[columnIndex];
+
+        let valA, valB;
+
+        if (type === 'number') {
+          valA = parseFloat(cellA.getAttribute('data-value') || cellA.innerText.replace(/[^0-9.-]+/g, ""));
+          valB = parseFloat(cellB.getAttribute('data-value') || cellB.innerText.replace(/[^0-9.-]+/g, ""));
+        } else {
+          valA = (cellA.getAttribute('data-value') || cellA.innerText).trim().toLowerCase();
+          valB = (cellB.getAttribute('data-value') || cellB.innerText).trim().toLowerCase();
+        }
+
+        if (valA < valB) return currentDir === 'asc' ? -1 : 1;
+        if (valA > valB) return currentDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Append reordered rows
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // 3. Download reduced CSV handler
+    function handleDownload() {
+      const csvData = [
+        ["duration", "pdays", "nr.employed", "y"],
+        [261, 999, 5191, "no"],
+        [149, 999, 5191, "no"],
+        [226, 999, 5191, "no"],
+        [151, 999, 5191, "no"],
+        [307, 999, 5191, "no"]
+      ];
+
+      const csvContent = "data:text/csv;charset=utf-8," 
+        + csvData.map(e => e.join(",")).join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "bank_marketing_kbest3_reduced.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+
+
+
+
+</body></html>
